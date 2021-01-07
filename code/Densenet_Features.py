@@ -10,7 +10,7 @@ import torch.utils.data as Data
 import glob
 import numpy as np
 from sklearn import svm
-from sklearn.metrics import  classification_report
+from sklearn.metrics import classification_report
 import SimpleITK as sitk
 
 
