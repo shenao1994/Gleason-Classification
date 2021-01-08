@@ -5,7 +5,6 @@ import torch.nn.functional as F
 class GleasonNet(nn.Module):
     def __init__(self, input_features, num_class):
         super().__init__()
-        output1 = input_features - 10 + 1
         self.conv1 = nn.Sequential(
             nn.Conv1d(
                 in_channels=input_features,
@@ -17,18 +16,15 @@ class GleasonNet(nn.Module):
             nn.ReLU(),
             # nn.MaxPool2d(kernel_size=2),
         )
-        output2 = output1 - 10 + 1
         self.conv2 = nn.Sequential(
             nn.Conv1d(512, 256, 2, 1, 2),
             nn.ReLU(),
             # nn.MaxPool2d(2),
         )
-        output3 = output2 - 10 + 1
         self.conv3 = nn.Sequential(
             nn.Conv1d(256, 128, 2, 1, 2),
             nn.ReLU(),
         )
-        output4 = output3 - 10 + 1
         self.conv4 = nn.Sequential(
             nn.Conv1d(128, 64, 2, 1, 2),
             nn.ReLU(),
