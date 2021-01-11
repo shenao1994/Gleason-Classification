@@ -3,7 +3,6 @@
   <component name="ChangeListManager">
     <list default="true" id="876d278c-e5ac-40b0-9c50-c05846930d78" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/code/Gleason_classification.py" beforeDir="false" afterPath="$PROJECT_DIR$/code/Gleason_classification.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -160,7 +159,8 @@
       <workItem from="1610008335472" duration="7011000" />
       <workItem from="1610068002483" duration="20999000" />
       <workItem from="1610282561117" duration="1252000" />
-      <workItem from="1610327740229" duration="263000" />
+      <workItem from="1610327740229" duration="837000" />
+      <workItem from="1610329100697" duration="343000" />
     </task>
     <task id="LOCAL-00001" summary="完成了pytocrh训练组学特征的代码，并已跑通。">
       <created>1610014677821</created>
@@ -176,7 +176,14 @@
       <option name="project" value="LOCAL" />
       <updated>1610094233177</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="完成了几组对比实验。">
+      <created>1610328038606</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1610328038606</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -185,17 +192,18 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="完成了pytocrh训练组学特征的代码，并已跑通。" />
     <MESSAGE value="在Gleason_classfication.py文件下添加了验证数据集的方法，并完成了多模态的几组对比实验。" />
-    <option name="LAST_COMMIT_MESSAGE" value="在Gleason_classfication.py文件下添加了验证数据集的方法，并完成了多模态的几组对比实验。" />
+    <MESSAGE value="完成了几组对比实验。" />
+    <option name="LAST_COMMIT_MESSAGE" value="完成了几组对比实验。" />
   </component>
   <component name="WindowStateProjectService">
     <state x="416" y="175" key="#com.intellij.execution.impl.EditConfigurationsDialog" timestamp="1610014519585">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
     <state x="416" y="175" key="#com.intellij.execution.impl.EditConfigurationsDialog/0.0.1920.1040@0.0.1920.1040" timestamp="1610014519585" />
-    <state x="567" y="110" key="CommitChangelistDialog2" timestamp="1610094232227">
+    <state x="567" y="110" key="CommitChangelistDialog2" timestamp="1610328037906">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state x="567" y="110" key="CommitChangelistDialog2/0.0.1920.1040@0.0.1920.1040" timestamp="1610094232227" />
+    <state x="567" y="110" key="CommitChangelistDialog2/0.0.1920.1040@0.0.1920.1040" timestamp="1610328037906" />
     <state width="1878" height="342" key="GridCell.Tab.0.bottom" timestamp="1610101758524">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
@@ -232,10 +240,10 @@
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
     <state x="462" y="162" key="SettingsEditor/0.0.1920.1040@0.0.1920.1040" timestamp="1610008359152" />
-    <state x="553" y="253" key="Vcs.Push.Dialog.v2" timestamp="1610094280745">
+    <state x="553" y="253" key="Vcs.Push.Dialog.v2" timestamp="1610328568222">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
-    <state x="553" y="253" key="Vcs.Push.Dialog.v2/0.0.1920.1040@0.0.1920.1040" timestamp="1610094280745" />
+    <state x="553" y="253" key="Vcs.Push.Dialog.v2/0.0.1920.1040@0.0.1920.1040" timestamp="1610328568222" />
     <state x="756" y="437" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1610328004583">
       <screen x="0" y="0" width="1920" height="1040" />
     </state>
