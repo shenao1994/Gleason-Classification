@@ -1,30 +1,29 @@
-import radiomics
 from radiomics import featureextractor
 import pandas as pd
 import os
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LassoCV
-from sklearn.ensemble import RandomForestClassifier
 from sklearn import preprocessing
 from sklearn import svm
-from sklearn.svm import LinearSVC
-from sklearn.model_selection import train_test_split, GridSearchCV, RepeatedKFold, cross_val_score, validation_curve
+from sklearn.svm import LinearSVC, SVC
+from sklearn.model_selection import train_test_split, RepeatedKFold, validation_curve, GridSearchCV, StratifiedShuffleSplit
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.feature_selection import RFECV, RFE
-from sklearn.decomposition import PCA, KernelPCA
+from sklearn.decomposition import PCA
 from sklearn.utils import shuffle
 from sklearn.metrics import roc_auc_score, roc_curve, classification_report
-from scipy.stats import levene, pearsonr, ttest_ind
 from sklearn.linear_model import LinearRegression
+
+from scipy.stats import levene, ttest_ind
 from imblearn.over_sampling import SMOTE
 import SimpleITK as sitk
 from imgaug import augmenters as iaa
 import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize
 import pickle
 # import pymrmr
-import mifs
-import math
+# import mifs
 
 
 flip_up_down = iaa.Sequential([
@@ -128,16 +127,16 @@ def fix_data_axis():
 
 
 def load_data():
-    dataPath = './No2Hospital_baomowaiqinfan_features.csv'
-    data = pd.read_csv(dataPath)
+    dataPath = '../data/No2Hospital_binglishengji_features.csv'
+    data = pd.read_csv(dataPath, encoding='gbk')
     row, _ = data.shape
     originData = pd.DataFrame(data)
     # classType = 3
     # originData['label'] = originData.apply(lambda x: 0 if x.ClassifyValue < classType else 1, axis=1)
     # data1 = originData[originData['ClassifyValue'] < classType]
     # data2 = originData[originData['ClassifyValue'] >= classType]
-    data1 = originData[originData['label'] == 0]
-    data2 = originData[originData['label'] == 1]
+    data1 = originData[originData['病理升级'] == 0]
+    data2 = originData[originData['病理升级'] == 1]
     return data1, data2, originData
 
 
@@ -145,10 +144,10 @@ class ClassificationProcessing:
     @staticmethod
     def TTest_Lasso(data):
         selectedFeatutesList = []
-        label = data['label']
+        label = data['病理升级']
         print(label[label[0:] == 0].values.size, label[label[0:] == 1].values.size)
-        colNames = data[data.columns[2:]].columns
-        data = data[data.columns[2:]].fillna(0)
+        colNames = data[data.columns[9:]].columns
+        data = data[data.columns[9:]].fillna(0)
         data = data.astype(np.float64)
         data = StandardScaler().fit_transform(data)
         data = pd.DataFrame(data)
@@ -157,9 +156,8 @@ class ClassificationProcessing:
         # balanced Data
         smo = SMOTE(random_state=2)
         X_smote, y_smote = smo.fit_sample(data, data['label'])
-        # print(X_smote, y_smote)
         for colName in X_smote.columns[0:-1]:
-            if 'ADC' in colName:
+            # if 'ADC' not in colName:
                 if levene(X_smote[X_smote['label'] == 0][colName], X_smote[X_smote['label'] == 1][colName])[1] > 0.05 \
                     and ttest_ind(X_smote[X_smote['label'] == 0][colName], X_smote[X_smote['label'] == 1][colName])[1] < 0.05:selectedFeatutesList.append(colName)
                 elif levene(X_smote[X_smote['label'] == 0][colName], X_smote[X_smote['label'] == 1][colName])[1] <= 0.05 and \
@@ -342,7 +340,7 @@ class ClassificationProcessing:
         return X_rfe, y_smote
 
     @staticmethod
-    def train_Classifier(X, y):
+    def train_classifier(X, y):
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
         print(len(X_train), len(X_test))
         # model_rf = RandomForestClassifier(n_estimators=20).fit(X_train, y_train)
@@ -363,45 +361,64 @@ class ClassificationProcessing:
         best_auc = -1
         best_metric_epoch = 0
         rkf = RepeatedKFold(n_splits=5, n_repeats=1)
-        class_modal_key = 'adc'
-        for epoch in range(200):
-            val_acc = []
-            val_auc = []
-            for train_index, val_index in rkf.split(X_train):
-                X_cv_train = X_train.iloc[train_index]
-                X_val = X_train.iloc[val_index]
-                y_cv_train = y_train.iloc[train_index]
-                y_val = y_train.iloc[val_index]
-                model_svm = svm.SVC(kernel='rbf', gamma='auto', probability=True).fit(X_cv_train, y_cv_train)
-                # model_rf = RandomForestClassifier(n_estimators=20).fit(X_cv_train, y_cv_train)
-                accuracy_rf = model_svm.score(X_val, y_val)
-                y_probs = model_svm.predict_proba(X_val)
-                auc = roc_auc_score(y_val, y_probs[:, 1])
-                val_acc.append(accuracy_rf)
-                val_auc.append(auc)
-            current_auc = sum(val_auc) / len(val_auc)
-            current_acc = sum(val_acc) / len(val_acc)
-            print(
-                "current epoch: {} current AUC: {:.4f} current accuracy: {:.4f} best AUC: {:.4f} at epoch {}".format(
-                    epoch + 1, current_auc, current_acc, best_auc, best_metric_epoch
-                ))
-            if current_auc > best_auc:
-                best_auc = current_auc
-                best_metric_epoch = epoch + 1
-                with open('./No2Hospital/baomowaiqinfan_model/best_clf_{classModal}.pickle'.format(classModal=class_modal_key),
-                          'wb') as f:
-                    pickle.dump(model_svm, f)
+        class_modal_key = 't2+adc'
+        # C_range = np.logspace(-2, 10, 15)
+        # gamma_range = np.logspace(-10, 3, 15)
+        # param_grid = dict(gamma=gamma_range, C=C_range)
+        # cv = StratifiedShuffleSplit(n_splits=5, test_size=0.2, random_state=42)
+        # grid = GridSearchCV(SVC(), param_grid=param_grid, cv=cv)
+        # grid.fit(X, y)
+        #
+        # print("The best parameters are %s with a score of %0.2f"
+        #       % (grid.best_params_, grid.best_score_))
+        # scores = grid.cv_results_['mean_test_score'].reshape(len(C_range),
+        #                                                      len(gamma_range))
+        # plt.figure(figsize=(8, 6))
+        # plt.subplots_adjust(left=.2, right=0.95, bottom=0.15, top=0.95)
+        # plt.imshow(scores, interpolation='nearest', cmap=plt.cm.hot,
+        #            norm=MidpointNormalize(vmin=0.2, midpoint=0.92))
+        # plt.xlabel('gamma')
+        # plt.ylabel('C')
+        # plt.colorbar()
+        # plt.xticks(np.arange(len(gamma_range)), gamma_range, rotation=45)
+        # plt.yticks(np.arange(len(C_range)), C_range)
+        # plt.title('Validation accuracy')
+        # plt.show()
+        val_acc = []
+        val_auc = []
+        for train_index, val_index in rkf.split(X_train):
+            X_cv_train = X_train.iloc[train_index]
+            X_val = X_train.iloc[val_index]
+            y_cv_train = y_train.iloc[train_index]
+            y_val = y_train.iloc[val_index]
+            model_svm = svm.SVC(C=3727593.720314938, kernel='rbf', gamma=0.02275845926074791,
+                                probability=True).fit(X_cv_train, y_cv_train)
+            accuracy_svm = model_svm.score(X_val, y_val)
+            y_probs = model_svm.predict_proba(X_val)
+            auc = roc_auc_score(y_val, y_probs[:, 1])
+            val_acc.append(accuracy_svm)
+            val_auc.append(auc)
+        current_auc = sum(val_auc) / len(val_auc)
+        current_acc = sum(val_acc) / len(val_acc)
+        print(
+            "current AUC: {:.4f} current accuracy: {:.4f}".format(
+                current_auc, current_acc
+            ))
+        with open('../result/No2Hospital/binglishengji_model/best_clf_{classModal}.pickle'.format(
+                classModal=class_modal_key),
+                  'wb') as f:
+            pickle.dump(model_svm, f)
         # print(pca_train.shape, pca_test.shape)
         # model_svm = svm.SVC(kernel='rbf', gamma=0.005, probability=True).fit(X_train, y_train)
-        with open('./No2Hospital/baomowaiqinfan_model/best_clf_{classModal}.pickle'.format(classModal=class_modal_key),
+        with open('../result/No2Hospital/binglishengji_model/best_clf_{classModal}.pickle'.format(classModal=class_modal_key),
                   'rb') as f:
             best_clf = pickle.load(f)
-            y_train_probs = best_clf.predict_proba(X_cv_train)
-            train_auc = roc_auc_score(y_cv_train, y_train_probs[:, 1])
-            train_accuracy_rf = best_clf.score(X_cv_train, y_cv_train)
+            y_train_probs = best_clf.predict_proba(X_train)
+            train_auc = roc_auc_score(y_train, y_train_probs[:, 1])
+            train_accuracy_rf = best_clf.score(X_train, y_train)
             print('train_auc = %.4f' % train_auc)
             print('train_accuracy = %.4f' % train_accuracy_rf)
-            print(classification_report(y_cv_train, best_clf.predict(X_cv_train), digits=4))
+            print(classification_report(y_train, best_clf.predict(X_train), digits=4))
             y_val_probs = best_clf.predict_proba(X_val)
             val_auc = roc_auc_score(y_val, y_val_probs[:, 1])
             val_accuracy_rf = best_clf.score(X_val, y_val)
@@ -419,7 +436,23 @@ class ClassificationProcessing:
             plt.xlabel("false presitive rate")
             plt.ylabel("true presitive rate")
             plt.legend(loc=4)  # 图例的位置
-            plt.savefig('./No2Hospital/baomowaiqinfan_roc/{classModal}_roc.png'.format(classModal=class_modal_key))
+            plt.savefig('../result/No2Hospital/binglishengji_roc/{classModal}_roc.png'.format(classModal=class_modal_key))
+            # result_data = {'predict': y_test_probs[:, 1]}
+            # result_data = pd.DataFrame(result_data)
+            # result_data['label'] = y_test.iloc[:, ].values
+            # print(result_data)
+            # dca(result_data, 'label', 'predict')
+
+
+class MidpointNormalize(Normalize):
+
+    def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+        self.midpoint = midpoint
+        Normalize.__init__(self, vmin, vmax, clip)
+
+    def __call__(self, value, clip=None):
+        x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
+        return np.ma.masked_array(np.interp(value, x, y))
 
 
 def get_best_gamma(X_train, y_train):
@@ -462,4 +495,4 @@ if __name__ == '__main__':
     # trainX, trainY = ClassificationProcessing.LDA_followed_PCA(x1, x2, mixData)
     # trainX, trainY = ClassificationProcessing.TTest_mRMR_svmRFE_selector(mixData)
     # trainX, trainY = ClassificationProcessing.Pearson_RFE_selector(mixData)
-    ClassificationProcessing.train_Classifier(trainX, trainY)
+    ClassificationProcessing.train_classifier(trainX, trainY)
