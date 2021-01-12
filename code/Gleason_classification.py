@@ -30,7 +30,7 @@ def load_feature_data():
     selectedFeatutesList = []
     # colNames = gleason_data[gleason_data.columns[8:]].columns
     for colName in gleason_data.columns[8:]:
-        if 'T2' not in colName:
+        # if 'DWI' not in colName:
             selectedFeatutesList.append(colName)
     gleason_data = pd.DataFrame(gleason_data, columns=selectedFeatutesList)
     colNames = gleason_data.columns
@@ -39,12 +39,13 @@ def load_feature_data():
     gleason_data = StandardScaler().fit_transform(gleason_data)
     gleason_data = pd.DataFrame(gleason_data)
     gleason_data.columns = colNames
-    smo = SMOTE(random_state=2)
-    x_smote, y_smote = smo.fit_sample(gleason_data, label['ClassifyValue'])
-    input_features = x_smote.shape[1]
+    # smo = SMOTE(random_state=2)
+    # x_smote, y_smote = smo.fit_sample(gleason_data, label['ClassifyValue'])
+    # input_features = x_smote.shape[1]
+    input_features = gleason_data.shape[1]
     # print(x_smote.shape[1])
     # print(x_smote)
-    return x_smote, y_smote, input_features
+    return gleason_data, label['ClassifyValue'], input_features
 
 
 def training_data(gleason_data, label, input_num):
@@ -53,7 +54,7 @@ def training_data(gleason_data, label, input_num):
     # print(gleason_data)
     for train_index, test_index in cross_validation.split(np.array(gleason_data), label):
         count += 1
-        log_dir = '../result/Gleason/' + 'adc+dwi_3d_ordinal_model{num}.pth'.format(num=count)
+        log_dir = '../result/Gleason/' + 't2+adc+dwi_3d_one-hot_unbalanced_model{num}.pth'.format(num=count)
         x_train, x_test = np.array(gleason_data)[train_index], np.array(gleason_data)[test_index]
         y_train, y_test = np.array(label)[train_index], np.array(label)[test_index]
         x_train = torch.from_numpy(x_train)
@@ -67,9 +68,9 @@ def training_data(gleason_data, label, input_num):
         glsModel = GleasonNet(input_features=input_num, num_class=5).double().to(device)
         # print(glsNet)
         optimizer = torch.optim.Adam(glsModel.parameters(), lr=0.001)
-        # loss_func = torch.nn.CrossEntropyLoss()  # 损失函数设置为loss_function
-        loss_func = torch.nn.BCEWithLogitsLoss()
-        epoch_num = 50
+        loss_func = torch.nn.CrossEntropyLoss()  # 损失函数设置为loss_function
+        # loss_func = torch.nn.BCEWithLogitsLoss()
+        epoch_num = 150
         start_epoch = 0
         best_metric = -1
         best_metric_epoch = -1
@@ -88,9 +89,9 @@ def training_data(gleason_data, label, input_num):
                 inputs, labels = data
                 inputs, labels = Variable(inputs).to(device), Variable(labels).to(device)
                 out = glsModel(inputs)
-                # loss = loss_func(out, labels)  # 计算loss为out和y的差异
-                y_ordinal_encoding = transformOrdinalEncoding(labels, labels.shape[0], 5)
-                loss = loss_func(out, torch.from_numpy(y_ordinal_encoding).to(device))
+                loss = loss_func(out, labels)  # 计算loss为out和y的差异
+                # y_ordinal_encoding = transformOrdinalEncoding(labels, labels.shape[0], 5)
+                # loss = loss_func(out, torch.from_numpy(y_ordinal_encoding).to(device))
                 optimizer.zero_grad()  # 清除一下上次梯度计算的数值
                 loss.backward()  # 进行反向传播
                 optimizer.step()  # 最优化迭代
@@ -111,16 +112,15 @@ def training_data(gleason_data, label, input_num):
                         val_images, val_labels = Variable(val_images).to(device), Variable(val_labels).to(device)
                         y_pred = torch.cat([y_pred, glsModel(val_images)], dim=0)
                         y_target = torch.cat([y_target, val_labels], dim=0)
-                        y_pred = torch.sigmoid(y_pred)
-                    zero = torch.zeros_like(y_pred)
-                    one = torch.ones_like(y_pred)
-                    y_pred_label = torch.where(y_pred > 0.5, one, zero)
-                    # print((y_pred_label.sum(1)).to(torch.long))
-                    y_pred_acc = (y_pred_label.sum(1)).to(torch.long)
-                    # kappa_value = cohen_kappa_score(y_target.to("cpu"), y_pred.argmax(dim=1).to("cpu"), weights='quadratic')
-                    kappa_value = cohen_kappa_score(y_target.to("cpu"), y_pred_acc.to("cpu"), weights='quadratic')
+                        # y_pred = torch.sigmoid(y_pred)
+                    # zero = torch.zeros_like(y_pred)
+                    # one = torch.ones_like(y_pred)
+                    # y_pred_label = torch.where(y_pred > 0.5, one, zero)
+                    # y_pred_acc = (y_pred_label.sum(1)).to(torch.long)
+                    kappa_value = cohen_kappa_score(y_target.to("cpu"), y_pred.argmax(dim=1).to("cpu"), weights='quadratic')
+                    # kappa_value = cohen_kappa_score(y_target.to("cpu"), y_pred_acc.to("cpu"), weights='quadratic')
                     metric_values.append(kappa_value)
-                    acc_value = torch.eq(y_pred_acc, y_target)
+                    acc_value = torch.eq(y_pred.argmax(dim=1), y_target)
                     # print(acc_value)
                     acc_metric = acc_value.sum().item() / len(acc_value)
                     if kappa_value > best_metric:
@@ -161,22 +161,22 @@ def evaluta_model(test_data, model_name, input_n):
             test_images, test_labels = Variable(test_images).to(device), Variable(test_labels).to(device)
             pred = glsModel(test_images)  # Gleason Classification
             probabilities = torch.sigmoid(pred)
-            zero = torch.zeros_like(probabilities)
-            one = torch.ones_like(probabilities)
-            y_pred_ordinal = torch.where(probabilities > 0.5, one, zero)
-            y_pred_acc = (y_pred_ordinal.sum(1)).to(torch.long)
+            # zero = torch.zeros_like(probabilities)
+            # one = torch.ones_like(probabilities)
+            # y_pred_ordinal = torch.where(probabilities > 0.5, one, zero)
+            # y_pred_acc = (y_pred_ordinal.sum(1)).to(torch.long)
             # saver.save_batch(y_pred_acc, test_data["adcImg_meta_dict"])
-            cm = confusion_matrix(test_labels, y_pred_acc)
-            # cm = confusion_matrix(test_labels, probabilities.argmax(dim=1))
-            kappa_value = cohen_kappa_score(test_labels, y_pred_acc, weights='quadratic')
-            # kappa_value = cohen_kappa_score(test_labels, probabilities.argmax(dim=1), weights='quadratic')
+            # cm = confusion_matrix(test_labels, y_pred_acc)
+            cm = confusion_matrix(test_labels, probabilities.argmax(dim=1))
+            # kappa_value = cohen_kappa_score(test_labels, y_pred_acc, weights='quadratic')
+            kappa_value = cohen_kappa_score(test_labels, probabilities.argmax(dim=1), weights='quadratic')
             print('quadratic weighted kappa=' + str(kappa_value))
             kappa_list.append(kappa_value)
             plot_confusion_matrix(cm, model_name + '_confusion_matrix.png', title='confusion matrix')
         from sklearn.metrics import classification_report
-        print(classification_report(test_labels, y_pred_acc, digits=4))
+        print(classification_report(test_labels, probabilities.argmax(dim=1), digits=4))
         accuracy_list.append(
-            classification_report(test_labels, y_pred_acc, digits=4, output_dict=True)["accuracy"])
+            classification_report(test_labels, probabilities.argmax(dim=1), digits=4, output_dict=True)["accuracy"])
 
 
 def transformOrdinalEncoding(labels, shape, num_class):
