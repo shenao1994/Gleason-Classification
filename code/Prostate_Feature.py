@@ -136,8 +136,8 @@ def load_data():
     # originData['label'] = originData.apply(lambda x: 0 if x.ClassifyValue < classType else 1, axis=1)
     # data1 = originData[originData['ClassifyValue'] < classType]
     # data2 = originData[originData['ClassifyValue'] >= classType]
-    data1 = originData[originData['病理升级'] == 0]
-    data2 = originData[originData['病理升级'] == 1]
+    data1 = originData[originData['包膜侵犯'] == 0]
+    data2 = originData[originData['包膜侵犯'] == 1]
     return data1, data2, originData
 
 
@@ -159,7 +159,7 @@ class ClassificationProcessing:
         X_smote, y_smote = smo.fit_sample(data, data['label'])
         print(X_smote)
         for colName in X_smote.columns[0:-1]:
-            if 'T2' not in colName and 'EPE score' not in colName:
+            if 'ADC' in colName:
                 if levene(X_smote[X_smote['label'] == 0][colName], X_smote[X_smote['label'] == 1][colName])[1] > 0.05 \
                     and ttest_ind(X_smote[X_smote['label'] == 0][colName], X_smote[X_smote['label'] == 1][colName])[1] < 0.05:selectedFeatutesList.append(colName)
                 elif levene(X_smote[X_smote['label'] == 0][colName], X_smote[X_smote['label'] == 1][colName])[1] <= 0.05 and \
@@ -195,8 +195,6 @@ class ClassificationProcessing:
         #            va='top')
         print("Lasso picked " + str(sum(coef != 0)) + " variables and eliminated the other " + str(sum(coef == 0)) +
               " variables")
-        # print(X_Smote)
-        # print(y_smote)
         return X, y
 
     @staticmethod
@@ -355,7 +353,7 @@ class ClassificationProcessing:
         C = grid.best_params_['C']
         gamma = grid.best_params_['gamma']
         rkf = RepeatedKFold(n_splits=5, n_repeats=1)
-        class_modal_key = 'adc+clinic'
+        class_modal_key = 'adc'
         # val_acc = []
         # val_auc = []
         # for train_index, val_index in rkf.split(X_train):
@@ -389,8 +387,9 @@ class ClassificationProcessing:
             ))
         with open('../result/No2Hospital/baomowaiqinfan_model/best_clf_{classModal}.pickle'.format(
                 classModal=class_modal_key),
-                  'wb') as f:
+                'wb') as f:
             pickle.dump(model_svm, f)
+
         with open('../result/No2Hospital/baomowaiqinfan_model/best_clf_{classModal}.pickle'.format(classModal=class_modal_key),
                   'rb') as f:
             best_clf = pickle.load(f)
