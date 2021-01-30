@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import torchvision
 import time
 from torch.autograd import Variable
-from dataLoader import myDataset
+from code.dataLoader import myDataset
 import torch.utils.data as Data
 import glob
 import numpy as np

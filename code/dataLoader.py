@@ -41,17 +41,13 @@ class myDataset(Dataset):
         label = datafiles["label"]
         lab_arr = label
         img_arr = np.stack((t2_arr, adc_arr, dwi_arr), axis=0)
-        # print(img_arr.shape)
-        # img_arr = np.expand_dims(img_arr, axis=0)
-        # print(img_arr)
-        # img_arr = img_arr.astype(np.float16)
         return img_arr, lab_arr, t2_img_name
 
 
 def normalise_img(img_path):
     image = sitk.ReadImage(img_path)
     img_arr = sitk.GetArrayFromImage(image)
-    img_arr = transform.resize(img_arr, (32, 32))
+    # img_arr = transform.resize(img_arr, (32, 32))
     # 归一化
     max = np.max(img_arr)
     min = np.min(img_arr)

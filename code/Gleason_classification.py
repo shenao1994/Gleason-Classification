@@ -30,7 +30,7 @@ def load_feature_data():
     selectedFeatutesList = []
     # colNames = gleason_data[gleason_data.columns[8:]].columns
     for colName in gleason_data.columns[8:]:
-        # if 'DWI' not in colName:
+        # if 'T2' not in colName:
             selectedFeatutesList.append(colName)
     gleason_data = pd.DataFrame(gleason_data, columns=selectedFeatutesList)
     colNames = gleason_data.columns
@@ -51,25 +51,29 @@ def load_feature_data():
 def training_data(gleason_data, label, input_num):
     cross_validation = KFold(n_splits=5, shuffle=True)
     count = 0
-    # print(gleason_data)
+    print(input_num)
     for train_index, test_index in cross_validation.split(np.array(gleason_data), label):
         count += 1
-        log_dir = '../result/Gleason/' + 't2+adc+dwi_3d_one-hot_unbalanced_model{num}.pth'.format(num=count)
+        log_dir = '../result/Gleason/' + 't2+adc+dwi_3d_ordinal_balanced_model{num}.pth'.format(num=count)
         x_train, x_test = np.array(gleason_data)[train_index], np.array(gleason_data)[test_index]
         y_train, y_test = np.array(label)[train_index], np.array(label)[test_index]
-        x_train = torch.from_numpy(x_train)
-        y_train = torch.from_numpy(y_train)
+        smo = SMOTE(random_state=2)
+        x_smote, y_smote = smo.fit_sample(x_train, y_train)
+        # input_features = x_smote.shape[1]
+        print(x_smote.shape)
+        x_train = torch.from_numpy(x_smote)
+        y_train = torch.from_numpy(y_smote)
         x_test = torch.from_numpy(x_test)
         y_test = torch.from_numpy(y_test)
         train_dataset = TensorDataset(x_train, y_train)
         train_loader = DataLoader(dataset=train_dataset, batch_size=256, shuffle=True, num_workers=2)
         val_dataset = TensorDataset(x_test, y_test)
-        val_loader = DataLoader(dataset=val_dataset, batch_size=len(val_dataset), shuffle=True, num_workers=2)
+        val_loader = DataLoader(dataset=val_dataset, batch_size=len(val_dataset), num_workers=2)
         glsModel = GleasonNet(input_features=input_num, num_class=5).double().to(device)
         # print(glsNet)
         optimizer = torch.optim.Adam(glsModel.parameters(), lr=0.001)
-        loss_func = torch.nn.CrossEntropyLoss()  # 损失函数设置为loss_function
-        # loss_func = torch.nn.BCEWithLogitsLoss()
+        # loss_func = torch.nn.CrossEntropyLoss()  # 损失函数设置为loss_function
+        loss_func = torch.nn.BCEWithLogitsLoss()
         epoch_num = 150
         start_epoch = 0
         best_metric = -1
@@ -89,9 +93,9 @@ def training_data(gleason_data, label, input_num):
                 inputs, labels = data
                 inputs, labels = Variable(inputs).to(device), Variable(labels).to(device)
                 out = glsModel(inputs)
-                loss = loss_func(out, labels)  # 计算loss为out和y的差异
-                # y_ordinal_encoding = transformOrdinalEncoding(labels, labels.shape[0], 5)
-                # loss = loss_func(out, torch.from_numpy(y_ordinal_encoding).to(device))
+                # loss = loss_func(out, labels)  # 计算loss为out和y的差异
+                y_ordinal_encoding = transformOrdinalEncoding(labels, labels.shape[0], 5)
+                loss = loss_func(out, torch.from_numpy(y_ordinal_encoding).to(device))
                 optimizer.zero_grad()  # 清除一下上次梯度计算的数值
                 loss.backward()  # 进行反向传播
                 optimizer.step()  # 最优化迭代
@@ -112,15 +116,15 @@ def training_data(gleason_data, label, input_num):
                         val_images, val_labels = Variable(val_images).to(device), Variable(val_labels).to(device)
                         y_pred = torch.cat([y_pred, glsModel(val_images)], dim=0)
                         y_target = torch.cat([y_target, val_labels], dim=0)
-                        # y_pred = torch.sigmoid(y_pred)
-                    # zero = torch.zeros_like(y_pred)
-                    # one = torch.ones_like(y_pred)
-                    # y_pred_label = torch.where(y_pred > 0.5, one, zero)
-                    # y_pred_acc = (y_pred_label.sum(1)).to(torch.long)
-                    kappa_value = cohen_kappa_score(y_target.to("cpu"), y_pred.argmax(dim=1).to("cpu"), weights='quadratic')
-                    # kappa_value = cohen_kappa_score(y_target.to("cpu"), y_pred_acc.to("cpu"), weights='quadratic')
+                        y_pred = torch.sigmoid(y_pred)
+                    zero = torch.zeros_like(y_pred)
+                    one = torch.ones_like(y_pred)
+                    y_pred_label = torch.where(y_pred > 0.5, one, zero)
+                    y_pred_acc = (y_pred_label.sum(1)).to(torch.long)
+                    # kappa_value = cohen_kappa_score(y_target.to("cpu"), y_pred.argmax(dim=1).to("cpu"), weights='quadratic')
+                    kappa_value = cohen_kappa_score(y_target.to("cpu"), y_pred_acc.to("cpu"), weights='quadratic')
                     metric_values.append(kappa_value)
-                    acc_value = torch.eq(y_pred.argmax(dim=1), y_target)
+                    acc_value = torch.eq(y_pred_acc, y_target)
                     # print(acc_value)
                     acc_metric = acc_value.sum().item() / len(acc_value)
                     if kappa_value > best_metric:
@@ -149,11 +153,10 @@ def evaluta_model(test_data, model_name, input_n):
     glsModel = GleasonNet(input_features=input_n, num_class=5).double().to(device)
     # Evaluate the model on test dataset #
     # print(os.path.basename(model_name).split('.')[0])
-    test_loader = DataLoader(dataset=test_data, batch_size=len(test_data), shuffle=True, num_workers=2)
+    test_loader = DataLoader(dataset=test_data, batch_size=len(test_data), num_workers=2)
     checkpoint = torch.load(model_name)
     glsModel.load_state_dict(checkpoint['model'])
     glsModel.eval()
-    print(model_name)
     with torch.no_grad():
         # saver = CSVSaver(output_dir="./output/", filename=os.path.basename(model_name).split('.')[0] + '.csv')
         for test_data in test_loader:
@@ -161,22 +164,22 @@ def evaluta_model(test_data, model_name, input_n):
             test_images, test_labels = Variable(test_images).to(device), Variable(test_labels).to(device)
             pred = glsModel(test_images)  # Gleason Classification
             probabilities = torch.sigmoid(pred)
-            # zero = torch.zeros_like(probabilities)
-            # one = torch.ones_like(probabilities)
-            # y_pred_ordinal = torch.where(probabilities > 0.5, one, zero)
-            # y_pred_acc = (y_pred_ordinal.sum(1)).to(torch.long)
+            zero = torch.zeros_like(probabilities)
+            one = torch.ones_like(probabilities)
+            y_pred_ordinal = torch.where(probabilities > 0.5, one, zero)
+            y_pred_acc = (y_pred_ordinal.sum(1)).to(torch.long)
             # saver.save_batch(y_pred_acc, test_data["adcImg_meta_dict"])
-            # cm = confusion_matrix(test_labels, y_pred_acc)
-            cm = confusion_matrix(test_labels, probabilities.argmax(dim=1))
-            # kappa_value = cohen_kappa_score(test_labels, y_pred_acc, weights='quadratic')
-            kappa_value = cohen_kappa_score(test_labels, probabilities.argmax(dim=1), weights='quadratic')
+            cm = confusion_matrix(test_labels, y_pred_acc)
+            # cm = confusion_matrix(test_labels, pred.argmax(dim=1))
+            kappa_value = cohen_kappa_score(test_labels, y_pred_acc, weights='quadratic')
+            # kappa_value = cohen_kappa_score(test_labels, pred.argmax(dim=1), weights='quadratic')
             print('quadratic weighted kappa=' + str(kappa_value))
             kappa_list.append(kappa_value)
             plot_confusion_matrix(cm, model_name + '_confusion_matrix.png', title='confusion matrix')
         from sklearn.metrics import classification_report
-        print(classification_report(test_labels, probabilities.argmax(dim=1), digits=4))
+        print(classification_report(test_labels, y_pred_acc, digits=4))
         accuracy_list.append(
-            classification_report(test_labels, probabilities.argmax(dim=1), digits=4, output_dict=True)["accuracy"])
+            classification_report(test_labels, y_pred_acc, digits=4, output_dict=True)["accuracy"])
 
 
 def transformOrdinalEncoding(labels, shape, num_class):
